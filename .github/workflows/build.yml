@@ -1,7 +1,7 @@
 name: Build Custom Kernel Spes
 
 on:
-  workflow_dispatch: # Inilah yang memunculkan tombol "Run workflow"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,17 +17,13 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng bc libssl-dev libelf-dev clang lld
 
-    - name: Clone Toolchain Clang
+    - name: Clone Toolchain Clang (Proton Clang)
       run: |
-        mkdir -p clang
-        cd clang
-        wget -q https://github.com/ZyCromerZ/Clang/releases/download/21.0.0git-20250106-release/Clang-21.0.0git-20250106.tar.gz
-        tar -xf Clang-21.0.0git-20250106.tar.gz
-        cd ..
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Clone Kernel Source Spes
+    - name: Clone Kernel Source Spes & AnyKernel3
       run: |
-        git clone --depth=1 https://github.com/xiaomi-sm6225/android_kernel_xiaomi_spes -b 4.19 kernel
+        git clone --depth=1 https://github.com/xiaomi-spes-devs/android_kernel_xiaomi_spes kernel
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3 anykernel
 
     - name: Apply Config & Build Kernel
@@ -37,14 +33,20 @@ jobs:
         export ARCH=arm64
         export SUBARCH=arm64
         export CROSS_COMPILE=aarch64-linux-gnu-
+        export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
         export CC=clang
-        export CLANG_TRIPLE=aarch64-linux-gnu-
+        export LD=ld.lld
+        export AR=llvm-ar
+        export NM=llvm-nm
+        export OBJCOPY=llvm-objcopy
+        export OBJDUMP=llvm-objdump
+        export STRIP=llvm-strip
 
-        # Gunakan config hasil optimasi
+        # Terapkan config optimasi jika tersedia
         if [ -f "../optimized_spes_kernel.config" ]; then
             cp ../optimized_spes_kernel.config arch/arm64/configs/spes_defconfig
-        else
-            make vendor/spes_defconfig
+        elif [ -f "arch/arm64/configs/vendor/spes_defconfig" ]; then
+            cp arch/arm64/configs/vendor/spes_defconfig arch/arm64/configs/spes_defconfig
         fi
 
         make spes_defconfig
@@ -52,8 +54,9 @@ jobs:
 
         # Copy hasil build ke AnyKernel3
         cp arch/arm64/boot/Image.gz ../anykernel/
-        cp arch/arm64/boot/dts/vendor/qcom/*.dtb ../anykernel/dtb 2>/dev/null || true
+        find arch/arm64/boot/dts/ -name "*.dtb" -exec cp {} ../anykernel/dtb \; 2>/dev/null || true
         cd ../anykernel
+        sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh || true
         zip -r9 ../SuperSpes-Kernel-Optimized.zip * -x .git README.md
 
     - name: Upload Kernel Flashable ZIP
