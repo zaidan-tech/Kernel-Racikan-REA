@@ -45,10 +45,13 @@ jobs:
           STRIP=llvm-strip \
           KCFLAGS=-w"
 
-        # 1. Load defconfig resmi spes
+        # 1. Fix include path untuk pll_trace.h di display techpack
+        echo "ccflags-y += -I\$(srctree)/techpack/display/pll -I\$(src)" >> techpack/display/pll/Makefile
+
+        # 2. Load defconfig resmi spes
         make $MAKE_ARGS vendor/spes-perf_defconfig
 
-        # 2. Inject optimasi racikan performa REA
+        # 3. Inject optimasi racikan performa REA
         # Aktifkan Kompresi RAM ZSTD (Prioritas multitasking RAM 4GB)
         scripts/config --enable CONFIG_CRYPTO_ZSTD
         scripts/config --enable CONFIG_ZRAM_DEF_COMP_ZSTD
@@ -73,10 +76,10 @@ jobs:
         # Sinkronkan config final
         make $MAKE_ARGS olddefconfig
 
-        # 3. Kompilasi Image.gz
+        # 4. Kompilasi Image.gz
         make -j$(nproc --all) $MAKE_ARGS Image.gz
 
-        # 4. Bungkus ke AnyKernel3 flashable zip
+        # 5. Bungkus ke AnyKernel3 flashable zip
         cp arch/arm64/boot/Image.gz ../anykernel/
         cd ../anykernel
 
