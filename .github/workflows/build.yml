@@ -45,8 +45,14 @@ jobs:
           STRIP=llvm-strip \
           KCFLAGS=-w"
 
-        # 1. Fix include path untuk pll_trace.h di display techpack
+        # 1. Fix include path & header placement untuk tracepoints di techpack
         echo "ccflags-y += -I\$(srctree)/techpack/display/pll -I\$(src)" >> techpack/display/pll/Makefile
+        cp techpack/display/pll/pll_trace.h include/trace/ 2>/dev/null || true
+        cp techpack/display/pll/pll_trace.h ./ 2>/dev/null || true
+        cp techpack/display/msm/sde/sde_trace.h include/trace/ 2>/dev/null || true
+        cp techpack/display/msm/sde/sde_trace.h ./ 2>/dev/null || true
+        cp techpack/display/rotator/sde_rotator_trace.h include/trace/ 2>/dev/null || true
+        cp techpack/display/rotator/sde_rotator_trace.h ./ 2>/dev/null || true
 
         # 2. Load defconfig resmi spes
         make $MAKE_ARGS vendor/spes-perf_defconfig
