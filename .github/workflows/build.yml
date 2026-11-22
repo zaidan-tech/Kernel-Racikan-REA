@@ -15,7 +15,7 @@ jobs:
     - name: Install Build Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng bc libssl-dev libelf-dev clang lld
+        sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng bc libssl-dev libelf-dev clang lld gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
 
     - name: Clone Toolchain Clang (Proton Clang)
       run: |
@@ -30,17 +30,19 @@ jobs:
       run: |
         cd kernel
         export PATH="$(pwd)/../clang/bin:$PATH"
-        export ARCH=arm64
-        export SUBARCH=arm64
-        export CROSS_COMPILE=aarch64-linux-gnu-
-        export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-        export CC=clang
-        export LD=ld.lld
-        export AR=llvm-ar
-        export NM=llvm-nm
-        export OBJCOPY=llvm-objcopy
-        export OBJDUMP=llvm-objdump
-        export STRIP=llvm-strip
+
+        MAKE_ARGS="ARCH=arm64 \
+          SUBARCH=arm64 \
+          CC=clang \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          LD=ld.lld \
+          AR=llvm-ar \
+          NM=llvm-nm \
+          OBJCOPY=llvm-objcopy \
+          OBJDUMP=llvm-objdump \
+          STRIP=llvm-strip"
 
         # Terapkan config optimasi jika tersedia
         if [ -f "../optimized_spes_kernel.config" ]; then
@@ -49,8 +51,8 @@ jobs:
             cp arch/arm64/configs/vendor/spes_defconfig arch/arm64/configs/spes_defconfig
         fi
 
-        make spes_defconfig
-        make -j$(nproc --all) Image.gz dtb
+        make $MAKE_ARGS spes_defconfig
+        make -j$(nproc --all) $MAKE_ARGS Image.gz dtb
 
         # Copy hasil build ke AnyKernel3
         cp arch/arm64/boot/Image.gz ../anykernel/
