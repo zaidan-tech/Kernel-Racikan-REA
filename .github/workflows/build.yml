@@ -21,12 +21,12 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Clone Kernel Source Spes (Branch lineage-23.2) & AnyKernel3
+    - name: Clone Kernel Source Spes & AnyKernel3
       run: |
-        git clone --depth=1 https://github.com/xiaomi-spes-devs/android_kernel_xiaomi_spes -b lineage-23.2 kernel
+        git clone --depth=1 https://github.com/Evolution-X-Devices/kernel_xiaomi_spes -b main kernel
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3 anykernel
 
-    - name: Apply Config & Build Kernel
+    - name: Apply Optimizations & Build Kernel
       run: |
         cd kernel
         export PATH="$(pwd)/../clang/bin:$PATH"
@@ -45,20 +45,47 @@ jobs:
           STRIP=llvm-strip \
           KCFLAGS=-w"
 
-        # Terapkan config optimasi jika tersedia
-        if [ -f "../optimized_spes_kernel.config" ]; then
-            cp ../optimized_spes_kernel.config arch/arm64/configs/spes_defconfig
-        elif [ -f "arch/arm64/configs/vendor/spes_defconfig" ]; then
-            cp arch/arm64/configs/vendor/spes_defconfig arch/arm64/configs/spes_defconfig
-        fi
+        # 1. Load defconfig resmi spes
+        make $MAKE_ARGS vendor/spes-perf_defconfig
 
-        make $MAKE_ARGS spes_defconfig
+        # 2. Inject optimasi racikan performa REA
+        # Aktifkan Kompresi RAM ZSTD (Prioritas multitasking RAM 4GB)
+        scripts/config --enable CONFIG_CRYPTO_ZSTD
+        scripts/config --enable CONFIG_ZRAM_DEF_COMP_ZSTD
+        scripts/config --set-str CONFIG_ZRAM_DEF_COMP "zstd"
+
+        # Schedutil Governor (Optimal daya & performa, dingin tanpa overheat)
+        scripts/config --enable CONFIG_CPU_FREQ_GOV_SCHEDUTIL
+        scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+        scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
+
+        # Aktifkan BBR TCP Congestion (Koneksi WiFi & Game lebih responsif)
+        scripts/config --enable CONFIG_TCP_CONG_BBR
+        scripts/config --enable CONFIG_DEFAULT_BBR
+        scripts/config --set-str CONFIG_DEFAULT_TCP_CONG "bbr"
+
+        # Matikan Debug Bloat (Meringankan kernel & hemat RAM)
+        scripts/config --disable CONFIG_DEBUG_INFO
+        scripts/config --disable CONFIG_DEBUG_LIST
+        scripts/config --disable CONFIG_SLUB_DEBUG
+        scripts/config --disable CONFIG_ARM64_ERRATUM_843419
+
+        # Sinkronkan config final
+        make $MAKE_ARGS olddefconfig
+
+        # 3. Kompilasi Image.gz
         make -j$(nproc --all) $MAKE_ARGS Image.gz
 
-        # Copy hasil build ke AnyKernel3
+        # 4. Bungkus ke AnyKernel3 flashable zip
         cp arch/arm64/boot/Image.gz ../anykernel/
         cd ../anykernel
-        sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh || true
+
+        # Sesuaikan metadata AnyKernel3 untuk spes / spesn
+        sed -i 's/kernel.string=.*/kernel.string=SuperSpes-Kernel-Optimized (SM6225)/g' anykernel.sh
+        sed -i 's/device.name1=.*/device.name1=spes/g' anykernel.sh
+        sed -i 's/device.name2=.*/device.name2=spesn/g' anykernel.sh
+        sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh
+
         zip -r9 ../SuperSpes-Kernel-Optimized.zip * -x .git README.md
 
     - name: Upload Kernel Flashable ZIP
