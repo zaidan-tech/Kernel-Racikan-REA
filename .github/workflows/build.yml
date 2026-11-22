@@ -1,0 +1,63 @@
+name: Build Custom Kernel Spes
+
+on:
+  workflow_dispatch: # Inilah yang memunculkan tombol "Run workflow"
+
+jobs:
+  build:
+    name: Build Kernel Spes SM6225
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Build Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng bc libssl-dev libelf-dev clang lld
+
+    - name: Clone Toolchain Clang
+      run: |
+        mkdir -p clang
+        cd clang
+        wget -q https://github.com/ZyCromerZ/Clang/releases/download/21.0.0git-20250106-release/Clang-21.0.0git-20250106.tar.gz
+        tar -xf Clang-21.0.0git-20250106.tar.gz
+        cd ..
+
+    - name: Clone Kernel Source Spes
+      run: |
+        git clone --depth=1 https://github.com/xiaomi-sm6225/android_kernel_xiaomi_spes -b 4.19 kernel
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3 anykernel
+
+    - name: Apply Config & Build Kernel
+      run: |
+        cd kernel
+        export PATH="$(pwd)/../clang/bin:$PATH"
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CC=clang
+        export CLANG_TRIPLE=aarch64-linux-gnu-
+
+        # Gunakan config hasil optimasi
+        if [ -f "../optimized_spes_kernel.config" ]; then
+            cp ../optimized_spes_kernel.config arch/arm64/configs/spes_defconfig
+        else
+            make vendor/spes_defconfig
+        fi
+
+        make spes_defconfig
+        make -j$(nproc --all) Image.gz dtb
+
+        # Copy hasil build ke AnyKernel3
+        cp arch/arm64/boot/Image.gz ../anykernel/
+        cp arch/arm64/boot/dts/vendor/qcom/*.dtb ../anykernel/dtb 2>/dev/null || true
+        cd ../anykernel
+        zip -r9 ../SuperSpes-Kernel-Optimized.zip * -x .git README.md
+
+    - name: Upload Kernel Flashable ZIP
+      uses: actions/upload-artifact@v4
+      with:
+        name: SuperSpes-Kernel-Flashable-ZIP
+        path: SuperSpes-Kernel-Optimized.zip
