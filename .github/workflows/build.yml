@@ -21,9 +21,9 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Clone Kernel Source Spes & AnyKernel3
+    - name: Clone Kernel Source Spes (Branch lineage-23.2) & AnyKernel3
       run: |
-        git clone --depth=1 https://github.com/xiaomi-spes-devs/android_kernel_xiaomi_spes kernel
+        git clone --depth=1 https://github.com/xiaomi-spes-devs/android_kernel_xiaomi_spes -b lineage-23.2 kernel
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3 anykernel
 
     - name: Apply Config & Build Kernel
@@ -42,7 +42,8 @@ jobs:
           NM=llvm-nm \
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
-          STRIP=llvm-strip"
+          STRIP=llvm-strip \
+          KCFLAGS=-w"
 
         # Terapkan config optimasi jika tersedia
         if [ -f "../optimized_spes_kernel.config" ]; then
