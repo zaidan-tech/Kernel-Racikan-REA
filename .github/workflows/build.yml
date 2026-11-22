@@ -52,11 +52,10 @@ jobs:
         fi
 
         make $MAKE_ARGS spes_defconfig
-        make -j$(nproc --all) $MAKE_ARGS Image.gz dtb
+        make -j$(nproc --all) $MAKE_ARGS Image.gz
 
         # Copy hasil build ke AnyKernel3
         cp arch/arm64/boot/Image.gz ../anykernel/
-        find arch/arm64/boot/dts/ -name "*.dtb" -exec cp {} ../anykernel/dtb \; 2>/dev/null || true
         cd ../anykernel
         sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh || true
         zip -r9 ../SuperSpes-Kernel-Optimized.zip * -x .git README.md
